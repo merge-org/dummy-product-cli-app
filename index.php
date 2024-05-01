@@ -24,10 +24,19 @@ $command
 	->option("-ru --random-image-url")
 	->option("-np --number-of-products", "How many products to be created", function(string $input) {
 		return (int) $input;
-	}, 1)
+	}, 0)
+	->option("-no --number-of-orders", "How many products to be created", function(string $input) {
+		return (int) $input;
+	}, 0)
+	->option("-mnop --max-number-of-order-products",
+		"How many products to be created inside an order",
+		function(string $input) {
+			return (int) $input;
+		},
+		5)
 	->option("-delp --delete-all-products", "Delete all previous products", function(string $input) {
 		return (bool) $input;
-	}, TRUE)
+	}, FALSE)
 	->option("-delo --delete-all-orders", "Delete all previous orders", function(string $input) {
 		return (bool) $input;
 	}, FALSE)
@@ -39,11 +48,24 @@ $url = $values["url"];
 $consumerKey = $values["consumerKey"];
 $consumerSecret = $values["consumerSecret"];
 $numberOfProducts = $values["numberOfProducts"];
+$numberOfOrders = $values["numberOfOrders"];
+$maxNumberOfOrderProducts = $values["maxNumberOfOrderProducts"];
 $randomImageUrl =
 	($values["randomImageUrl"] ?? FALSE) ?:
-		"https://random-image.co/random.jpg?width=800&height=600&v=" . md5((string) microtime(TRUE));
+		"https://random-image.co/random.jpg?width=600&height=800";
 $deleteAllOrders = $values["deleteAllOrders"];
 $deleteAllProducts = $values["deleteAllProducts"];
+
+echo "Initiating script `dummy-product-cli-app`\n";
+
+echo "WC URL: 					`$url`\n";
+echo "Consumer Key: 			`$consumerKey`\n";
+echo "Consumer Secret:			`$consumerSecret`\n";
+echo "Products to create:		`$numberOfProducts`\n";
+echo "Orders to create:  		`$numberOfOrders`\n";
+echo "Max Products per order:	`$maxNumberOfOrderProducts`\n";
+echo "Delete all Orders:		`$deleteAllOrders`\n";
+echo "Delete all Products:		`$deleteAllProducts`\n";
 
 $client = new Client($url, $consumerKey, $consumerSecret, ["verify_ssl" => FALSE]);
 
@@ -51,6 +73,7 @@ $generator = Factory::create();
 $generator->addProvider(new Commerce($generator));
 $categoryUpserter = new CategoryUpserter($generator, $client);
 $productUpserter = new ProductUpserter($generator, $client, $categoryUpserter);
+$orderCreator = new OrderCreator($generator, $client, $productUpserter);
 
 if($deleteAllOrders) {
 	$orders = [];
@@ -101,4 +124,14 @@ while($createdProducts < $numberOfProducts && $loop < 10) {
 
 	$loop++;
 	$createdProducts++;
+}
+
+$createdOrders = 0;
+$loop = 0;
+while($createdOrders < $numberOfOrders && $loop < 10) {
+	$order = $orderCreator->create($randomImageUrl, FALSE, $maxNumberOfOrderProducts);
+	echo "Created order '$order->id'" . PHP_EOL;
+
+	$loop++;
+	$createdOrders++;
 }
